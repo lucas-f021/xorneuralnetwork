@@ -92,11 +92,11 @@ double computeLoss(void) {
 void backProp(int i) {
 
     // dLoss is a derivative of the error margin with respect to the prediction
-    //   dPred is a derivative of the sigmoid function with respect to the raw pre-sigmoid pred value
-    //   deltaOut: the output neuron's error signal (its "blame") / how the loss responds
-    //   to the output's pre-sigmoid sum. we use the chain rule for derivatives to calculate this value
-    //   d(loss)/dx = d(loss)/d(pred) * d(pred)/dx
-    //  (combines nicely into dloss * dpred)
+    // dPred is a derivative of the sigmoid function with respect to the raw pre-sigmoid pred value
+    // deltaOut: the output neuron's error signal (its "blame") / how the loss responds
+    // to the output's pre-sigmoid sum. we use the chain rule for derivatives to calculate this value
+    // d(loss)/dx = d(loss)/d(pred) * d(pred)/dx
+    // (combines nicely into dloss * dpred)
     
 
     double dLoss = 2.0 * (prediction - expected[i]); // how wrong as final answer? pos = guessed too high neg = guessed too low
