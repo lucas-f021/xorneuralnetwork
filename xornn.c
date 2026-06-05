@@ -6,8 +6,6 @@
 
 //forward decs
 double sigmoid(double input);
-void debugging(void);
-void run(size_t runs);
 void initialize(void);
 void forwardProp(double x, double y);
 double computeLoss(void);
