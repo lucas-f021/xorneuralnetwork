@@ -61,12 +61,12 @@ void initialize(void) {
 
 void forwardProp(double x, double y) {
 
-    double inputs[2] = {x, y}; 
+    double currInputs[2] = {x, y}; 
     // sends inputs -> hidden layer
     for(int j = 0; j < 2; j++) { // hidden neuron index
         double sum = 0.0;
         for(int i = 0; i < 2; i++) {
-            sum += inputs[i] * W1[i][j]; // dot product
+            sum += currInputs[i] * W1[i][j]; // dot product
         }
         hidden[j] = sigmoid(sum + b1[j]); // add bias and apply sigmoid function
     }
