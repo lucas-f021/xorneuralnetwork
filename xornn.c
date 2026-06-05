@@ -11,6 +11,7 @@ void run(size_t runs);
 void initialize(void);
 void forwardProp(double x, double y);
 double computeLoss(void);
+void backProp(int i);
 
 // xor stuff
 double inputs[4][2] = { {0.0, 0.0}, // f
