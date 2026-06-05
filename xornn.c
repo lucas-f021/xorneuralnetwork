@@ -22,7 +22,7 @@ double expected[4] = {0.0, 1.0, 1.0, 0.0};
 
 // architecture: 2 input neurons -> 2 hidden neurons -> 1 output neuron
 
-// initialize weights
+// weight storage
 double W1[2][2]; // 2 source (input) neurons -> 2 destination (hidden layer) neurons
 double b1[2]; // 2 bias one per each neuron in the hidden layer
 double W2[2]; // connecting hidden to output, 2 hidden layer input neurons to 1 output.
