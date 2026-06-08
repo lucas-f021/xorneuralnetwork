@@ -6,13 +6,13 @@
 #include "forwarddecs.h"
 
 // xor stuff
-static double g_inputs[4][2] = { {0.0, 0.0}, // f
+static const double INPUT[4][2] = { {0.0, 0.0}, // f
                         {0.0, 1.0}, // t
                         {1.0, 0.0}, // t
                         {1.0, 1.0} }; // f
 
 // truth table outputs of XOR - aligns with above inputs
-static double g_expected[4] = {0.0, 
+static const double EXPECTED[4] = {0.0, 
                                 1.0, 
                                 1.0, 
                                 0.0};
@@ -38,7 +38,7 @@ int main(void) {
     int epochs = 500000; // 500k is good balance of reasonable and good prediction
     for (int epoch = 0; epoch < epochs; epoch++) {
         for (int i = 0; i < 4; i++) {           // one pass over all 4 examples
-            forwardProp(g_inputs[i][0], g_inputs[i][1]);
+            forwardProp(INPUT[i][0], INPUT[i][1]);
             backProp(i);
         }
         if (epoch % 1000 == 0) {                 // every 1000 epochs, report
@@ -48,8 +48,8 @@ int main(void) {
 
     printf("\ntraining done\npredictions:\n");
     for (int i = 0; i < 4; i++) {
-        forwardProp(g_inputs[i][0], g_inputs[i][1]);
-        printf("[%.0lf, %.0lf] -> %.3f (rounds to %d)\n", g_inputs[i][0], g_inputs[i][1], g_prediction, (int)(g_prediction + 0.5));
+        forwardProp(INPUT[i][0], INPUT[i][1]);
+        printf("[%.0lf, %.0lf] -> %.3f (rounds to %d)\n", INPUT[i][0], INPUT[i][1], g_prediction, (int)(g_prediction + 0.5));
     }
 
     return 0;
@@ -88,7 +88,7 @@ void initialize(void) {
 }
 
 /*
-* Sends initial XOR combination (from g_inputs) through the forward propigation layer
+* Sends initial XOR combination (from INPUT) through the forward propigation layer
 * @param double x The first operand of the XOR input
 * @param double y The second operand of the XOR input
 */
@@ -119,8 +119,8 @@ void forwardProp(double x, double y) {
 double computeLoss(void) {
     double errormargin = 0.0; // how far off we were from expected output
     for(int i = 0; i < 4; i++) {
-        forwardProp(g_inputs[i][0], g_inputs[i][1]); //run forw prop for every combo
-        double diff = (g_expected[i] - g_prediction);  // difference is our expected 1 or 0 - the prediction
+        forwardProp(INPUT[i][0], INPUT[i][1]); //run forw prop for every combo
+        double diff = (EXPECTED[i] - g_prediction);  // difference is our expected 1 or 0 - the prediction
         errormargin += diff * diff; 
         // why do we square? 1. removes all negative nums (cant have a neg error) 2. punishes large misses harder (a 50% miss is alot worse than a 10% miss)
         // 3. most importantly makes for an easy derivative in backprop
@@ -131,7 +131,7 @@ double computeLoss(void) {
 /*
  * Runs one backpropagation pass, computing gradients and updating all weights and biases.
  *
- * @param i  Index into g_inputs / g_expected for the current training example
+ * @param i  Index into INPUT / EXPECTED for the current training example
  */
 void backProp(int i) {
 
@@ -143,7 +143,7 @@ void backProp(int i) {
     // (combines nicely into dloss * dpred)
     
 
-    double dLoss = 2.0 * (g_prediction - g_expected[i]); // how wrong as final answer? pos = guessed too high neg = guessed too low
+    double dLoss = 2.0 * (g_prediction - EXPECTED[i]); // how wrong as final answer? pos = guessed too high neg = guessed too low
     double dPred = g_prediction * (1.0 - g_prediction); // how sensitive the output was, if prediction was slightly diff, would it matter?
     double deltaOut = dLoss * dPred; // combine into one blame score
 
@@ -165,7 +165,7 @@ void backProp(int i) {
     // same gradient descent step as above, just need loops since w1 is a 2x2 array
     for(int k = 0; k < 2; k++) {       // which input (1 or 2)
         for(int j = 0; j < 2; j++) {   // which hidden neuron (1 or 2)
-            g_w1[k][j] -= LEARNING_RATE * g_deltaHidden[j] * g_inputs[i][k];
+            g_w1[k][j] -= LEARNING_RATE * g_deltaHidden[j] * INPUT[i][k];
         }
     }
     
