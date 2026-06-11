@@ -90,47 +90,48 @@ with dpg.window(tag='main', no_title_bar=True, no_move=True, no_scrollbar=True,
 
             canvas = dpg.add_drawlist(width=CANVAS_W, height=CANVAS_H)
 
-            # layer labels
-            dpg.draw_text((40,  18), 'Input',  size=14, color=(210,210,210), parent=canvas)
-            dpg.draw_text((292, 18), 'Hidden', size=14, color=(210,210,210), parent=canvas)
-            dpg.draw_text((535, 18), 'Output', size=14, color=(210,210,210), parent=canvas)
+            with dpg.draw_node(tag='net_layer', parent=canvas):
 
-            # static edges (drawn first, below nodes)
-            # draw all lines first so labels render on top
-            for idx, (src, dst, wfn, lpos, wname) in enumerate(EDGES):
-                p1 = NODE_POS_PX[src]
-                p2 = NODE_POS_PX[dst]
-                dpg.draw_line(p1, p2, color=(33,102,172,80), thickness=1,
-                              tag=f'edge_{idx}', parent=canvas)
+                # layer labels
+                dpg.draw_text((40,  18), 'Input',  size=14, color=(210,210,210))
+                dpg.draw_text((292, 18), 'Hidden', size=14, color=(210,210,210))
+                dpg.draw_text((535, 18), 'Output', size=14, color=(210,210,210))
 
-            for idx, (src, dst, wfn, lpos, wname) in enumerate(EDGES):
-                lx, ly = lpos
-                dpg.draw_text((lx, ly),      wname,  size=14, color=(180,200,255), tag=f'wname_{idx}', parent=canvas)
-                dpg.draw_text((lx, ly + 15), '+0.00', size=14, color=(255,255,255), tag=f'wval_{idx}',  parent=canvas)
+                # draw all lines first so labels render on top
+                for idx, (src, dst, wfn, lpos, wname) in enumerate(EDGES):
+                    p1 = NODE_POS_PX[src]
+                    p2 = NODE_POS_PX[dst]
+                    dpg.draw_line(p1, p2, color=(33,102,172,80), thickness=1,
+                                  tag=f'edge_{idx}')
 
-            # static nodes (drawn on top of edges)
-            for key, (nx, ny) in NODE_POS_PX.items():
-                dpg.draw_circle((nx, ny), NODE_R,
-                                color=(220,220,220,255), fill=(255,255,255,255),
-                                thickness=2, parent=canvas)
-                label = NODE_LABELS[key]
-                tx = nx - (len(label) * 4)
-                dpg.draw_text((tx, ny - 7), label, size=14, color=(20,20,20), parent=canvas)
+                for idx, (src, dst, wfn, lpos, wname) in enumerate(EDGES):
+                    lx, ly = lpos
+                    dpg.draw_text((lx, ly),      wname,  size=14, color=(180,200,255), tag=f'wname_{idx}')
+                    dpg.draw_text((lx, ly + 15), '+0.00', size=14, color=(255,255,255), tag=f'wval_{idx}')
 
-            # bias labels (below hidden + output nodes)
-            for key in ('h0', 'h1', 'o0'):
-                nx, ny = NODE_POS_PX[key]
-                dpg.draw_text((nx - 22, ny + NODE_R + 4), 'b=0.00',
-                              size=13, color=(200,200,200), tag=f'bias_{key}', parent=canvas)
+                # static nodes (drawn on top of edges)
+                for key, (nx, ny) in NODE_POS_PX.items():
+                    dpg.draw_circle((nx, ny), NODE_R,
+                                    color=(220,220,220,255), fill=(255,255,255,255),
+                                    thickness=2)
+                    label = NODE_LABELS[key]
+                    tx = nx - (len(label) * 4)
+                    dpg.draw_text((tx, ny - 7), label, size=14, color=(20,20,20))
 
-            dpg.draw_text((10, 610), 'Epoch: 0', size=15, color=(220,220,220),
-                          tag='epoch_label', parent=canvas)
+                # bias labels (below hidden + output nodes)
+                for key in ('h0', 'h1', 'o0'):
+                    nx, ny = NODE_POS_PX[key]
+                    dpg.draw_text((nx - 22, ny + NODE_R + 4), 'b=0.00',
+                                  size=13, color=(200,200,200), tag=f'bias_{key}')
 
-            # legend
-            dpg.draw_line((430, 605), (465, 605), color=(33, 102, 172, 255), thickness=3, parent=canvas)
-            dpg.draw_text((470, 598), '= positive weight', size=13, color=(200,200,200), parent=canvas)
-            dpg.draw_line((430, 625), (465, 625), color=(214, 96, 77, 255),  thickness=3, parent=canvas)
-            dpg.draw_text((470, 618), '= negative weight', size=13, color=(200,200,200), parent=canvas)
+                dpg.draw_text((10, 610), 'Epoch: 0', size=15, color=(220,220,220),
+                              tag='epoch_label')
+
+                # legend
+                dpg.draw_line((430, 605), (465, 605), color=(33, 102, 172, 255), thickness=3)
+                dpg.draw_text((470, 598), '= positive weight', size=13, color=(200,200,200))
+                dpg.draw_line((430, 625), (465, 625), color=(214, 96, 77, 255),  thickness=3)
+                dpg.draw_text((470, 618), '= negative weight', size=13, color=(200,200,200))
 
         # ── RIGHT: loss plot + test inputs ───────────────────────────
         with dpg.child_window(tag='right_panel', width=650, height=720, no_scrollbar=True, border=True):
@@ -293,6 +294,11 @@ def on_viewport_resize():
     dpg.configure_item('right_panel', width=right_w, height=panel_h)
     dpg.configure_item('loss_plot',   width=right_w - 22,
                        height=max(370, panel_h - 280))
+    avail_w = left_w - 20
+    avail_h = panel_h - 50
+    scale = min(avail_w / CANVAS_W, avail_h / CANVAS_H)
+    dpg.configure_item(canvas, width=avail_w, height=avail_h)
+    dpg.apply_transform('net_layer', dpg.create_scale_matrix([scale, scale]))
 
 dpg.set_viewport_resize_callback(on_viewport_resize)
 
@@ -301,6 +307,7 @@ dpg.set_viewport_resize_callback(on_viewport_resize)
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.set_primary_window('main', True)
+on_viewport_resize()
 
 update_display()
 
