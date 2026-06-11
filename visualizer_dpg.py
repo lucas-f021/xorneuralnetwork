@@ -1,3 +1,4 @@
+import math
 import time
 import dearpygui.dearpygui as dpg
 from xornn import XORNet, INPUTS, EXPECTED
@@ -25,14 +26,14 @@ for epoch in range(EPOCHS):
             'loss': net.compute_loss(),
         })
 
-print(f"training done — {len(snapshots)} snapshots")
+print(f"training done -{len(snapshots)} snapshots")
 
 _helper = XORNet()
 
 def snap_forward(snap, x, y):
-    _helper.w1 = snap['w1']
-    _helper.b1 = snap['b1']
-    _helper.w2 = snap['w2']
+    _helper.w1 = snap['w1'].copy()
+    _helper.b1 = snap['b1'].copy()
+    _helper.w2 = snap['w2'].copy()
     _helper.b2 = snap['b2']
     _helper.forward_prop(x, y)
     return _helper.hidden.copy(), float(_helper.prediction)
@@ -51,13 +52,14 @@ NODE_POS_PX = {
 NODE_LABELS = {'i0': 'x0', 'i1': 'x1', 'h0': 'h0', 'h1': 'h1', 'o0': 'out'}
 
 # (src, dst, weight_getter, label_pos_px, var_name)
+# label positions sit above/beside their wire, clear of nodes and crossings
 EDGES = [
-    ('i0', 'h0', lambda s: s['w1'][0, 0], (197, 157), 'w1[0,0]'),
-    ('i0', 'h1', lambda s: s['w1'][0, 1], (45, 248), 'w1[0,1]'),
-    ('i1', 'h0', lambda s: s['w1'][1, 0], (45, 372), 'w1[1,0]'),
-    ('i1', 'h1', lambda s: s['w1'][1, 1], (197, 463), 'w1[1,1]'),
-    ('h0', 'o0', lambda s: s['w2'][0],    (442, 228), 'w2[0]'),
-    ('h1', 'o0', lambda s: s['w2'][1],    (442, 412), 'w2[1]'),
+    ('i0', 'h0', lambda s: s['w1'][0, 0], (175, 155), 'w1[0,0]'),
+    ('i0', 'h1', lambda s: s['w1'][0, 1], (90,  222), 'w1[0,1]'),
+    ('i1', 'h0', lambda s: s['w1'][1, 0], (90,  398), 'w1[1,0]'),
+    ('i1', 'h1', lambda s: s['w1'][1, 1], (175, 438), 'w1[1,1]'),
+    ('h0', 'o0', lambda s: s['w2'][0],    (415, 222), 'w2[0]'),
+    ('h1', 'o0', lambda s: s['w2'][1],    (415, 390), 'w2[1]'),
 ]
 
 def edge_color(w):
@@ -106,6 +108,12 @@ with dpg.window(tag='main', no_title_bar=True, no_move=True, no_scrollbar=True,
 
                 for idx, (src, dst, wfn, lpos, wname) in enumerate(EDGES):
                     lx, ly = lpos
+                    w = len(wname) * 7 + 6
+                    dpg.draw_rectangle((lx - 3, ly - 3), (lx + w, ly + 30),
+                                       fill=(18, 18, 18, 210), color=(90, 90, 110, 180))
+
+                for idx, (src, dst, wfn, lpos, wname) in enumerate(EDGES):
+                    lx, ly = lpos
                     dpg.draw_text((lx, ly),      wname,  size=14, color=(180,200,255), tag=f'wname_{idx}')
                     dpg.draw_text((lx, ly + 15), '+0.00', size=14, color=(255,255,255), tag=f'wval_{idx}')
 
@@ -113,10 +121,11 @@ with dpg.window(tag='main', no_title_bar=True, no_move=True, no_scrollbar=True,
                 for key, (nx, ny) in NODE_POS_PX.items():
                     dpg.draw_circle((nx, ny), NODE_R,
                                     color=(220,220,220,255), fill=(255,255,255,255),
-                                    thickness=2)
+                                    thickness=2, tag=f'node_circle_{key}')
                     label = NODE_LABELS[key]
                     tx = nx - (len(label) * 4)
-                    dpg.draw_text((tx, ny - 7), label, size=14, color=(20,20,20))
+                    dpg.draw_text((tx, ny - 7), label, size=14, color=(20,20,20),
+                                  tag=f'node_label_{key}')
 
                 # bias labels (below hidden + output nodes)
                 for key in ('h0', 'h1', 'o0'):
@@ -126,6 +135,11 @@ with dpg.window(tag='main', no_title_bar=True, no_move=True, no_scrollbar=True,
 
                 dpg.draw_text((10, 610), 'Epoch: 0', size=15, color=(220,220,220),
                               tag='epoch_label')
+
+                # single correctness indicator (hidden until an input is selected)
+                ox, oy = NODE_POS_PX['o0']
+                dpg.draw_text((ox + NODE_R + 8, oy - 8), 'YES', size=15, color=(60,180,60),
+                              tag='correct_val', show=False)
 
                 # legend
                 dpg.draw_line((430, 605), (465, 605), color=(33, 102, 172, 255), thickness=3)
@@ -150,32 +164,30 @@ with dpg.window(tag='main', no_title_bar=True, no_move=True, no_scrollbar=True,
                 dpg.add_line_series([0, 0], [0, 0.3],
                                     parent='y_axis', tag='epoch_marker',
                                     )
-            dpg.bind_item_theme('epoch_marker',
-                dpg.add_theme(tag='marker_theme') if False else 'marker_theme')
-
-            dpg.add_spacer(height=8)
+            dpg.add_spacer(height=10)
             dpg.add_separator()
             dpg.add_spacer(height=6)
-
-            # test inputs table
-            dpg.add_text('Test Inputs', color=(220, 220, 220))
+            dpg.add_text('Pass Walkthrough', color=(220, 220, 220))
             dpg.add_separator()
-            dpg.add_spacer(height=4)
-
-            COL_HEADERS = ['Input', 'h0', 'h1', 'out', 'correct?']
-            with dpg.table(header_row=True, borders_innerH=True, borders_innerV=True,
-                           borders_outerH=True, borders_outerV=True, width=620):
-                for h in COL_HEADERS:
-                    dpg.add_table_column(label=h)
-                for i in range(4):
-                    with dpg.table_row():
-                        lbl = f'[{int(INPUTS[i][0])},{int(INPUTS[i][1])}]'
-                        dpg.add_text(lbl)
-                        dpg.add_text('0.00', tag=f'cell_h0_{i}')
-                        dpg.add_text('0.00', tag=f'cell_h1_{i}')
-                        dpg.add_text('0.00', tag=f'cell_out_{i}')
-                        dpg.add_text('?',    tag=f'cell_pred_{i}')
-
+            dpg.add_spacer(height=6)
+            # shown when pass not active
+            with dpg.group(tag='pass_launch_group'):
+                dpg.add_button(label='Run Pass', tag='btn_pass', width=-1, height=36)
+                dpg.add_spacer(height=8)
+                dpg.add_text('Select an input, then press Run Pass.',
+                             tag='math_placeholder', color=(130, 130, 130))
+            # shown when pass is active
+            with dpg.group(tag='pass_active_group', show=False):
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label=' X ', tag='btn_pass_close', width=28, height=22)
+                    dpg.add_spacer(width=6)
+                    dpg.add_button(label=' < ', tag='btn_pass_prev', width=28, height=22)
+                    dpg.add_button(label=' > ', tag='btn_pass_next', width=28, height=22)
+                dpg.add_spacer(height=6)
+                dpg.add_text('', tag='pass_title', color=(255, 220, 50))
+                dpg.add_spacer(height=4)
+                for _k in range(8):
+                    dpg.add_text('', tag=f'pass_line_{_k}', color=(255, 255, 255))
     dpg.add_spacer(height=6)
 
     # ── Controls ─────────────────────────────────────────────────────
@@ -188,6 +200,10 @@ with dpg.window(tag='main', no_title_bar=True, no_move=True, no_scrollbar=True,
         dpg.add_text('Speed:')
         dpg.add_slider_int(tag='speed_slider', default_value=300,
                            min_value=50, max_value=600, width=200, format="")
+        dpg.add_spacer(width=30)
+        dpg.add_text('Show input:')
+        dpg.add_combo(['none', '[0,0]', '[0,1]', '[1,0]', '[1,1]'],
+                      tag='input_select', default_value='none', width=90)
 
 # --- create red theme for epoch marker ---
 with dpg.theme(tag='marker_theme'):
@@ -198,6 +214,135 @@ with dpg.theme(tag='marker_theme'):
 dpg.bind_item_theme('epoch_marker', 'marker_theme')
 
 # --- update functions ---
+
+_INPUT_OPTIONS = {'none': None, '[0,0]': 0, '[0,1]': 1, '[1,0]': 2, '[1,1]': 3}
+
+def _sigmoid(z):
+    return 1.0 / (1.0 + math.exp(-z))
+
+# --- pass animation ---
+
+pass_state = {'active': False, 'steps': [], 'step_idx': 0}
+
+def _set_node_highlight(key, hi):
+    if hi:
+        dpg.configure_item(f'node_circle_{key}', fill=(255,220,50,255), color=(255,190,20,255))
+    else:
+        dpg.configure_item(f'node_circle_{key}', fill=(255,255,255,255), color=(220,220,220,255))
+
+def _set_edge_highlight(idx, hi):
+    if hi:
+        dpg.configure_item(f'edge_{idx}', color=(255,220,50,230), thickness=5)
+    else:
+        snap = snapshots[state['idx']]
+        w = EDGES[idx][2](snap)
+        dpg.configure_item(f'edge_{idx}', color=edge_color(w), thickness=edge_thickness(w))
+
+def _apply_pass_step(step):
+    for k in NODE_POS_PX:
+        _set_node_highlight(k, False)
+    for i in range(len(EDGES)):
+        _set_edge_highlight(i, False)
+    for k in step['nodes']:
+        _set_node_highlight(k, True)
+    for i in step['edge_idxs']:
+        _set_edge_highlight(i, True)
+    dpg.configure_item('pass_title', default_value=step['title'])
+    for k in range(8):
+        line = step['lines'][k] if k < len(step['lines']) else ''
+        dpg.configure_item(f'pass_line_{k}', default_value=line)
+
+def _build_pass_steps(snap, i):
+    x0, x1 = int(INPUTS[i][0]), int(INPUTS[i][1])
+    exp = int(EXPECTED[i])
+    w = snap['w1']; b1 = snap['b1']; w2 = snap['w2']; b2 = snap['b2']
+    LR = 0.5
+    z0 = x0*w[0,0] + x1*w[1,0] + b1[0]; h0v = _sigmoid(z0)
+    z1 = x0*w[0,1] + x1*w[1,1] + b1[1]; h1v = _sigmoid(z1)
+    zo = h0v*w2[0] + h1v*w2[1] + b2;    pred = _sigmoid(zo)
+    d_loss = 2*(pred - exp)
+    d_sig  = pred*(1 - pred)
+    dout   = d_loss * d_sig
+    dh0 = dout * w2[0] * h0v*(1 - h0v)
+    dh1 = dout * w2[1] * h1v*(1 - h1v)
+    return [
+        {'title': 'Step 1/6 - Read Inputs',
+         'nodes': ['i0', 'i1'], 'edge_idxs': [],
+         'lines': [f'x0 = {x0}', f'x1 = {x1}']},
+        {'title': 'Step 2/6 - Forward: Hidden Layer',
+         'nodes': ['i0', 'i1', 'h0', 'h1'], 'edge_idxs': [0, 1, 2, 3],
+         'lines': [
+            f'z_h0 = {x0}*({w[0,0]:+.2f}) + {x1}*({w[1,0]:+.2f}) + ({b1[0]:+.2f}) = {z0:+.4f}',
+            f'h0   = sigmoid({z0:+.4f}) = {h0v:.4f}',
+            '',
+            f'z_h1 = {x0}*({w[0,1]:+.2f}) + {x1}*({w[1,1]:+.2f}) + ({b1[1]:+.2f}) = {z1:+.4f}',
+            f'h1   = sigmoid({z1:+.4f}) = {h1v:.4f}',
+         ]},
+        {'title': 'Step 3/6 - Forward: Output',
+         'nodes': ['h0', 'h1', 'o0'], 'edge_idxs': [4, 5],
+         'lines': [
+            f'z_out = {h0v:.3f}*({w2[0]:+.2f}) + {h1v:.3f}*({w2[1]:+.2f}) + ({b2:+.2f}) = {zo:+.4f}',
+            f'pred  = sigmoid({zo:+.4f}) = {pred:.4f}',
+            f'round = {round(pred)}   expected = {exp}',
+            f'error = {pred:.4f} - {exp} = {pred - exp:+.4f}',
+         ]},
+        {'title': 'Step 4/6 - Backprop: Output Delta',
+         'nodes': ['o0'], 'edge_idxs': [],
+         'lines': [
+            f'd_loss    = 2*(pred - exp) = 2*({pred:.4f} - {exp}) = {d_loss:+.4f}',
+            f"sigmoid'  = pred*(1-pred) = {pred:.4f}*{1-pred:.4f} = {d_sig:.4f}",
+            f'delta_out = d_loss * sigmoid\' = {d_loss:+.4f} * {d_sig:.4f} = {dout:+.4f}',
+         ]},
+        {'title': 'Step 5/6 - Backprop: Hidden Deltas',
+         'nodes': ['h0', 'h1'], 'edge_idxs': [4, 5],
+         'lines': [
+            f'delta_h0 = delta_out * w2[0] * h0*(1-h0)',
+            f'         = {dout:+.4f} * {w2[0]:+.2f} * {h0v*(1-h0v):.4f} = {dh0:+.4f}',
+            '',
+            f'delta_h1 = delta_out * w2[1] * h1*(1-h1)',
+            f'         = {dout:+.4f} * {w2[1]:+.2f} * {h1v*(1-h1v):.4f} = {dh1:+.4f}',
+         ]},
+        {'title': 'Step 6/6 - Backprop: Update Weights',
+         'nodes': [], 'edge_idxs': [0, 1, 2, 3, 4, 5],
+         'lines': [
+            f'w2[0]: {w2[0]:+.4f}  ->  {w2[0] - LR*dout*h0v:+.4f}',
+            f'w2[1]: {w2[1]:+.4f}  ->  {w2[1] - LR*dout*h1v:+.4f}',
+            f'b2:    {b2:+.4f}  ->  {b2 - LR*dout:+.4f}',
+            f'w1[0,0]: {w[0,0]:+.4f}  ->  {w[0,0] - LR*dh0*x0:+.4f}',
+            f'w1[1,0]: {w[1,0]:+.4f}  ->  {w[1,0] - LR*dh0*x1:+.4f}',
+            f'w1[0,1]: {w[0,1]:+.4f}  ->  {w[0,1] - LR*dh1*x0:+.4f}',
+            f'w1[1,1]: {w[1,1]:+.4f}  ->  {w[1,1] - LR*dh1*x1:+.4f}',
+         ]},
+    ]
+
+def update_node_labels(snap):
+    sel = dpg.get_value('input_select')
+    i = _INPUT_OPTIONS.get(sel)
+    show = (i is not None)
+    dpg.show_item('correct_val') if show else dpg.hide_item('correct_val')
+
+    if not show:
+        for key, lbl in NODE_LABELS.items():
+            nx, ny = NODE_POS_PX[key]
+            dpg.configure_item(f'node_label_{key}', text=lbl,
+                               pos=(nx - len(lbl) * 4, ny - 7))
+    else:
+        hidden, pred = snap_forward(snap, INPUTS[i][0], INPUTS[i][1])
+        vals = {
+            'i0': str(int(INPUTS[i][0])),
+            'i1': str(int(INPUTS[i][1])),
+            'h0': f'{hidden[0]:.2f}',
+            'h1': f'{hidden[1]:.2f}',
+            'o0': f'{pred:.2f}',
+        }
+        for key, txt in vals.items():
+            nx, ny = NODE_POS_PX[key]
+            dpg.configure_item(f'node_label_{key}', text=txt,
+                               pos=(nx - len(txt) * 4, ny - 7))
+        correct = round(pred) == int(EXPECTED[i])
+        dpg.configure_item('correct_val',
+                           text='YES' if correct else 'NO',
+                           color=(60,180,60,255) if correct else (210,60,60,255))
 
 def update_display():
     snap = snapshots[state['idx']]
@@ -221,19 +366,8 @@ def update_display():
     dpg.set_value('epoch_marker', [[snap['epoch'], snap['epoch']],
                                    [0, max(loss_vals)]])
 
-    # test inputs
-    for i in range(4):
-        hidden, pred = snap_forward(snap, INPUTS[i][0], INPUTS[i][1])
-        rounded = round(pred)
-        correct = rounded == int(EXPECTED[i])
-        marker = 'YES' if correct else 'NO'
-        ok_col  = (60, 180, 60, 255)
-        bad_col = (210, 60, 60, 255)
-        dpg.configure_item(f'cell_h0_{i}',   default_value=f'{hidden[0]:.2f}')
-        dpg.configure_item(f'cell_h1_{i}',   default_value=f'{hidden[1]:.2f}')
-        dpg.configure_item(f'cell_out_{i}',  default_value=f'{pred:.2f}')
-        dpg.configure_item(f'cell_pred_{i}', default_value=marker,
-                           color=ok_col if correct else bad_col)
+    update_node_labels(snap)
+
 
 def retrain():
     net.initialize()
@@ -255,32 +389,91 @@ def retrain():
         [s['epoch'] for s in snapshots],
         [s['loss']  for s in snapshots],
     ])
+    dpg.fit_axis_data('x_axis')
+    dpg.fit_axis_data('y_axis')
 
 # --- button callbacks ---
 
 def on_play(s, a, u):
+    if pass_state['active']: _end_pass()
     state['playing'] = not state['playing']
     dpg.configure_item('btn_play', label='Pause' if state['playing'] else 'Play')
 
 def on_fwd(s, a, u):
+    if pass_state['active']: _end_pass()
     state['idx'] = min(state['idx'] + 1, len(snapshots) - 1)
     update_display()
 
 def on_back(s, a, u):
+    if pass_state['active']: _end_pass()
     state['idx'] = max(state['idx'] - 1, 0)
     update_display()
 
 def on_restart(s, a, u):
+    if pass_state['active']: _end_pass()
     state['playing'] = False
     dpg.configure_item('btn_play', label='Play')
     retrain()
     state['idx'] = 0
     update_display()
 
-dpg.set_item_callback('btn_play',    on_play)
-dpg.set_item_callback('btn_fwd',     on_fwd)
-dpg.set_item_callback('btn_back',    on_back)
-dpg.set_item_callback('btn_restart', on_restart)
+def on_input_select(s, a, u):
+    if pass_state['active']: _end_pass()
+    update_node_labels(snapshots[state['idx']])
+
+def on_run_pass(s, a, u):
+    sel = dpg.get_value('input_select')
+    i = _INPUT_OPTIONS.get(sel)
+    if i is None:
+        i = 1  # default to [0,1]
+        dpg.set_value('input_select', '[0,1]')
+    snap = snapshots[state['idx']]
+    pass_state['steps']    = _build_pass_steps(snap, i)
+    pass_state['step_idx'] = 0
+    pass_state['active']   = True
+    state['playing'] = False
+    dpg.configure_item('btn_play', label='Play')
+    dpg.hide_item('pass_launch_group')
+    dpg.show_item('pass_active_group')
+    _apply_pass_step(pass_state['steps'][0])
+
+def _end_pass():
+    pass_state['active'] = False
+    for _k in NODE_POS_PX:
+        _set_node_highlight(_k, False)
+    for _i in range(len(EDGES)):
+        _set_edge_highlight(_i, False)
+    dpg.hide_item('pass_active_group')
+    dpg.show_item('pass_launch_group')
+    update_node_labels(snapshots[state['idx']])
+
+def on_pass_next(s, a, u):
+    if not pass_state['active']:
+        return
+    pass_state['step_idx'] += 1
+    if pass_state['step_idx'] >= len(pass_state['steps']):
+        _end_pass()
+    else:
+        _apply_pass_step(pass_state['steps'][pass_state['step_idx']])
+
+def on_pass_prev(s, a, u):
+    if not pass_state['active']:
+        return
+    pass_state['step_idx'] = max(0, pass_state['step_idx'] - 1)
+    _apply_pass_step(pass_state['steps'][pass_state['step_idx']])
+
+def on_pass_close(s, a, u):
+    _end_pass()
+
+dpg.set_item_callback('btn_play',      on_play)
+dpg.set_item_callback('btn_fwd',       on_fwd)
+dpg.set_item_callback('btn_back',      on_back)
+dpg.set_item_callback('btn_restart',   on_restart)
+dpg.set_item_callback('input_select',  on_input_select)
+dpg.set_item_callback('btn_pass',       on_run_pass)
+dpg.set_item_callback('btn_pass_next',  on_pass_next)
+dpg.set_item_callback('btn_pass_prev',  on_pass_prev)
+dpg.set_item_callback('btn_pass_close', on_pass_close)
 
 # --- resize callback ---
 
@@ -322,6 +515,7 @@ while dpg.is_dearpygui_running():
             if state['idx'] >= len(snapshots) - 1:
                 state['playing'] = False
                 dpg.configure_item('btn_play', label='Play')
+
     dpg.render_dearpygui_frame()
 
 dpg.destroy_context()
