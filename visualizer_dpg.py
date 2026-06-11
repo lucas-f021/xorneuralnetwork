@@ -1,7 +1,7 @@
 import math
 import time
 import dearpygui.dearpygui as dpg
-from xornn import XORNet, INPUTS, EXPECTED
+from xornn import XORNet, INPUTS, EXPECTED, LEARNING_RATE
 
 SNAPSHOT_INTERVAL = 50
 EPOCHS = 5000
@@ -186,7 +186,7 @@ with dpg.window(tag='main', no_title_bar=True, no_move=True, no_scrollbar=True,
                 dpg.add_spacer(height=6)
                 dpg.add_text('', tag='pass_title', color=(255, 220, 50))
                 dpg.add_spacer(height=4)
-                for _k in range(8):
+                for _k in range(10):
                     dpg.add_text('', tag=f'pass_line_{_k}', color=(255, 255, 255))
     dpg.add_spacer(height=6)
 
@@ -248,7 +248,7 @@ def _apply_pass_step(step):
     for i in step['edge_idxs']:
         _set_edge_highlight(i, True)
     dpg.configure_item('pass_title', default_value=step['title'])
-    for k in range(8):
+    for k in range(10):
         line = step['lines'][k] if k < len(step['lines']) else ''
         dpg.configure_item(f'pass_line_{k}', default_value=line)
 
@@ -256,7 +256,7 @@ def _build_pass_steps(snap, i):
     x0, x1 = int(INPUTS[i][0]), int(INPUTS[i][1])
     exp = int(EXPECTED[i])
     w = snap['w1']; b1 = snap['b1']; w2 = snap['w2']; b2 = snap['b2']
-    LR = 0.5
+    LR = LEARNING_RATE
     z0 = x0*w[0,0] + x1*w[1,0] + b1[0]; h0v = _sigmoid(z0)
     z1 = x0*w[0,1] + x1*w[1,1] + b1[1]; h1v = _sigmoid(z1)
     zo = h0v*w2[0] + h1v*w2[1] + b2;    pred = _sigmoid(zo)
@@ -305,13 +305,16 @@ def _build_pass_steps(snap, i):
         {'title': 'Step 6/6 - Backprop: Update Weights',
          'nodes': [], 'edge_idxs': [0, 1, 2, 3, 4, 5],
          'lines': [
-            f'w2[0]: {w2[0]:+.4f}  ->  {w2[0] - LR*dout*h0v:+.4f}',
-            f'w2[1]: {w2[1]:+.4f}  ->  {w2[1] - LR*dout*h1v:+.4f}',
-            f'b2:    {b2:+.4f}  ->  {b2 - LR*dout:+.4f}',
-            f'w1[0,0]: {w[0,0]:+.4f}  ->  {w[0,0] - LR*dh0*x0:+.4f}',
-            f'w1[1,0]: {w[1,0]:+.4f}  ->  {w[1,0] - LR*dh0*x1:+.4f}',
-            f'w1[0,1]: {w[0,1]:+.4f}  ->  {w[0,1] - LR*dh1*x0:+.4f}',
-            f'w1[1,1]: {w[1,1]:+.4f}  ->  {w[1,1] - LR*dh1*x1:+.4f}',
+            f'new = old - learning_rate * gradient  (lr={LEARNING_RATE})',
+            f'w2[0]:   {w2[0]:+.4f}  grad={LR*dout*h0v:+.4f}  ->  {w2[0] - LR*dout*h0v:+.4f}',
+            f'w2[1]:   {w2[1]:+.4f}  grad={LR*dout*h1v:+.4f}  ->  {w2[1] - LR*dout*h1v:+.4f}',
+            f'b2:      {b2:+.4f}  grad={LR*dout:+.4f}  ->  {b2 - LR*dout:+.4f}',
+            f'w1[0,0]: {w[0,0]:+.4f}  grad={LR*dh0*x0:+.4f}  ->  {w[0,0] - LR*dh0*x0:+.4f}',
+            f'w1[1,0]: {w[1,0]:+.4f}  grad={LR*dh0*x1:+.4f}  ->  {w[1,0] - LR*dh0*x1:+.4f}',
+            f'w1[0,1]: {w[0,1]:+.4f}  grad={LR*dh1*x0:+.4f}  ->  {w[0,1] - LR*dh1*x0:+.4f}',
+            f'w1[1,1]: {w[1,1]:+.4f}  grad={LR*dh1*x1:+.4f}  ->  {w[1,1] - LR*dh1*x1:+.4f}',
+            f'b1[0]:   {b1[0]:+.4f}  grad={LR*dh0:+.4f}  ->  {b1[0] - LR*dh0:+.4f}',
+            f'b1[1]:   {b1[1]:+.4f}  grad={LR*dh1:+.4f}  ->  {b1[1] - LR*dh1:+.4f}',
          ]},
     ]
 
