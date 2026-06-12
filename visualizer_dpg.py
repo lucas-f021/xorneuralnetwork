@@ -123,7 +123,7 @@ with dpg.window(tag='main', no_title_bar=True, no_move=True, no_scrollbar=True,
                                     color=(220,220,220,255), fill=(255,255,255,255),
                                     thickness=2, tag=f'node_circle_{key}')
                     label = NODE_LABELS[key]
-                    tx = nx - (len(label) * 4)
+                    tx = nx - (len(label) * 7) // 2
                     dpg.draw_text((tx, ny - 7), label, size=14, color=(20,20,20),
                                   tag=f'node_label_{key}')
 
@@ -328,7 +328,7 @@ def update_node_labels(snap):
         for key, lbl in NODE_LABELS.items():
             nx, ny = NODE_POS_PX[key]
             dpg.configure_item(f'node_label_{key}', text=lbl,
-                               pos=(nx - len(lbl) * 4, ny - 7))
+                               pos=(nx - (len(lbl) * 7) // 2, ny - 7))
     else:
         hidden, pred = snap_forward(snap, INPUTS[i][0], INPUTS[i][1])
         vals = {
@@ -341,7 +341,7 @@ def update_node_labels(snap):
         for key, txt in vals.items():
             nx, ny = NODE_POS_PX[key]
             dpg.configure_item(f'node_label_{key}', text=txt,
-                               pos=(nx - len(txt) * 4, ny - 7))
+                               pos=(nx - (len(txt) * 7) // 2, ny - 7))
         correct = round(pred) == int(EXPECTED[i])
         dpg.configure_item('correct_val',
                            text='YES' if correct else 'NO',
